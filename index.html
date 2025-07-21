@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Panel Store</title>
+    <style>
+        /* CSS Reset & Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        :root {
+            --primary: #5E50F2;
+            --secondary: #00C896;
+            --background: #0F0F1A;
+            --surface: #1A1A2E;
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0A0B5;
+            --border: #2A2A4A;
+            --success: #00C896;
+            --warning: #FFC107;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: var(--background);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.7s ease-out;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Main Layout */
+        .container { max-width: 1100px; margin: 0 auto; padding: 2rem; display: none; }
+        header { text-align: center; margin-bottom: 3rem; }
+        header h1 { font-size: 2.8rem; font-weight: 700; background: linear-gradient(90deg, var(--primary), var(--secondary)); -webkit-background-clip: text; color: transparent; }
+        header p { color: var(--text-secondary); font-size: 1.1rem; }
+        
+        main { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; }
+        .product-list { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        /* Product Card */
+        .product-card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .product-card:before {
+            content: '';
+            position: absolute;
+            top: -50px; left: -50px;
+            width: 100px; height: 100px;
+            background: radial-gradient(circle, rgba(94, 80, 242, 0.2), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .product-card:hover, .product-card.selected {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .product-card.selected { border-width: 2px; }
+        .product-card:hover:before { opacity: 1; }
+        .product-card h3 { font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+        .product-card p { color: var(--text-secondary); }
+
+        /* Order Sidebar */
+        .order-sidebar {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            position: sticky;
+            top: 2rem;
+        }
+        .order-sidebar h2 { font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--text-primary); }
+        
+        .options-group, .form-group { margin-bottom: 1.5rem; }
+        .options-group label, .form-group label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); }
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; background: var(--border); border-radius: 5px; outline: none; transition: opacity .2s; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: var(--primary); border-radius: 50%; cursor: pointer; }
+        input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; background: var(--primary); border-radius: 50%; cursor: pointer; }
+        #ram-value-display { color: var(--secondary); font-weight: 600; }
+        
+        input[type="text"], input[type="tel"] {
+            width: 100%;
+            background-color: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus, input[type="tel"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .price-display { text-align: center; margin: 2rem 0; }
+        .price-display span { font-size: 2.5rem; font-weight: 700; color: var(--secondary); }
+
+        .cta-button {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: linear-gradient(90deg, var(--primary), #8A4EF5);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .cta-button:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(94, 80, 242, 0.4); }
+        .cta-button:disabled { background: var(--border); color: var(--text-secondary); cursor: not-allowed; }
+
+        /* Mailbox & Payment Section */
+        #status-section { margin-top: 3rem; background-color: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; display: none; }
+        #status-section h2 { margin-bottom: 1rem; }
+        .mailbox {
+            background-color: var(--background);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid var(--warning);
+            transition: border-color 0.4s ease;
+        }
+        .mailbox.confirmed { border-color: var(--success); }
+        .mailbox p { color: var(--text-secondary); line-height: 1.6; }
+        .mailbox strong { color: var(--text-primary); }
+        .mailbox pre { 
+            background-color: var(--background);
+            color: var(--text-primary);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid var(--border);
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #payment-details { margin-top: 1.5rem; text-align: center; }
+        #payment-details img { border-radius: 8px; width: 150px; }
+        #payment-details p { margin-top: 1rem; }
+        #payment-details strong { color: var(--secondary); }
+
+        #upload-section { margin-top: 1.5rem; }
+        #upload-section h4 { margin-bottom: 1rem; }
+        input[type="file"] { width: 100%; background-color: var(--border); border-radius: 8px; padding: 0.5rem; }
+        .image-preview { display: none; max-width: 200px; margin-top: 1rem; border-radius: 8px; }
+
+        .hidden { display: none !important; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; }
+            .order-sidebar { position: static; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Nexus Panel Store</h1>
+            <p>Solusi Cepat dan Andal untuk Kebutuhan Digital Anda.</p>
+        </header>
+
+        <main>
+            <div class="product-list">
+                <div class="product-card" data-product="Panel Bot WA">
+                    <h3>🚀 Panel Bot WA</h3>
+                    <p>Performa tinggi untuk menjalankan bot WhatsApp Anda tanpa henti.</p>
+                </div>
+                <div class="product-card" data-product="VPS">
+                    <h3>☁️ Virtual Private Server</h3>
+                    <p>Kontrol penuh dengan server virtual untuk proyek skala besar.</p>
+                </div>
+            </div>
+
+            <aside class="order-sidebar">
+                <h2>Konfigurasi Pesanan</h2>
+
+                <div id="welcome-message">
+                    <p>Silakan pilih produk di sebelah kiri untuk memulai.</p>
+                </div>
+                
+                <div id="config-form" class="hidden">
+                    <div id="panel-options" class="options-group hidden">
+                        <label for="ram-slider">Kapasitas RAM: <span id="ram-value-display">1 GB</span></label>
+                        <input type="range" id="ram-slider" min="1" max="11" value="1">
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Pilih 11 GB untuk paket Unlimited (Rp 15.000).</p>
+                    </div>
+
+                    <div id="vps-options" class="options-group hidden">
+                        <p>Pesanan VPS akan dikonfigurasi melalui WhatsApp setelah pemesanan.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customer-name">Nama Lengkap</label>
+                        <input type="text" id="customer-name" placeholder="John Doe" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customer-whatsapp">Nomor WhatsApp</label>
+                        <input type="tel" id="customer-whatsapp" placeholder="6281234567890" required>
+                    </div>
+
+                    <div class="price-display">
+                        Total: <span id="total-price">Rp 1.000</span>
+                    </div>
+
+                    <button id="order-button" class="cta-button">Buat Pesanan</button>
+                </div>
+            </aside>
+        </main>
+        
+        <section id="status-section">
+            <h2>Status Pesanan Anda</h2>
+            <div id="mailbox" class="mailbox">
+                <p>Status pesanan akan ditampilkan di sini setelah Anda melakukan pemesanan.</p>
+            </div>
+            <div id="payment-details" class="hidden">
+                <hr style="border-color: var(--border); margin: 2rem 0;">
+                <h3>Metode Pembayaran</h3>
+                <img src="https://api.qr-code-generator.com/v1/create?access-token=your-token&qr_code_text=https://qris.id/&image_format=JPG" alt="QRIS Code">
+                <p>DANA/GOPAY: <strong>0812-3456-7890</strong> (a/n Nexus Store)</p>
+            </div>
+            <div id="upload-section" class="hidden">
+                <hr style="border-color: var(--border); margin: 2rem 0;">
+                <h4>Kirim Bukti Pembayaran</h4>
+                <input type="file" id="proof-upload" accept="image/*">
+                <img id="image-preview" class="image-preview" alt="Pratinjau Bukti"/>
+                <button id="send-proof-button" class="cta-button" style="margin-top: 1rem;">Kirim Bukti</button>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // --- Code JavaScript ---
+        window.addEventListener('load', () => {
+            document.getElementById('loading-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+                document.querySelector('.container').style.display = 'block';
+            }, 700);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- State Management ---
+            let state = {
+                product: null,
+                price: 0,
+                ram: 1,
+                orderId: null,
+                isConfirmed: false,
+            };
+
+            // --- Element Selectors ---
+            const elements = {
+                productCards: document.querySelectorAll('.product-card'),
+                welcomeMessage: document.getElementById('welcome-message'),
+                configForm: document.getElementById('config-form'),
+                panelOptions: document.getElementById('panel-options'),
+                vpsOptions: document.getElementById('vps-options'),
+                ramSlider: document.getElementById('ram-slider'),
+                ramValueDisplay: document.getElementById('ram-value-display'),
+                totalPrice: document.getElementById('total-price'),
+                orderButton: document.getElementById('order-button'),
+                statusSection: document.getElementById('status-section'),
+                mailbox: document.getElementById('mailbox'),
+                paymentDetails: document.getElementById('payment-details'),
+                uploadSection: document.getElementById('upload-section'),
+                proofUpload: document.getElementById('proof-upload'),
+                imagePreview: document.getElementById('image-preview'),
+                sendProofButton: document.getElementById('send-proof-button'),
+            };
+
+            // --- Functions ---
+            const updatePrice = () => {
+                if (state.product === 'Panel Bot WA') {
+                    const ram = parseInt(elements.ramSlider.value);
+                    state.ram = ram;
+                    if (ram <= 10) {
+                        state.price = ram * 1000;
+                        elements.ramValueDisplay.textContent = `${ram} GB`;
+                    } else {
+                        state.price = 15000;
+                        elements.ramValueDisplay.textContent = `Unlimited (11 GB)`;
+                    }
+                } else {
+                    state.price = 0; // Handled by admin
+                }
+                elements.totalPrice.textContent = state.product === 'VPS' ? 'Hubungi Admin' : `Rp ${state.price.toLocaleString('id-ID')}`;
+            };
+            
+            const selectProduct = (productCard) => {
+                state.product = productCard.dataset.product;
+                elements.productCards.forEach(c => c.classList.remove('selected'));
+                productCard.classList.add('selected');
+                
+                elements.welcomeMessage.classList.add('hidden');
+                elements.configForm.classList.remove('hidden');
+                
+                elements.panelOptions.classList.toggle('hidden', state.product !== 'Panel Bot WA');
+                elements.vpsOptions.classList.toggle('hidden', state.product !== 'VPS');
+                
+                updatePrice();
+            };
+
+            const checkMailbox = () => {
+                if (!state.orderId) return;
+                
+                const messageData = localStorage.getItem(`mailbox_${state.orderId}`);
+                if (messageData) {
+                    const { type, content, timestamp } = JSON.parse(messageData);
+                    
+                    if(type === "confirmation" && !state.isConfirmed) {
+                        state.isConfirmed = true;
+                        elements.mailbox.classList.add('confirmed');
+                        elements.mailbox.innerHTML = `<p>${content}</p>`;
+                        elements.paymentDetails.classList.remove('hidden');
+                        elements.uploadSection.classList.remove('hidden');
+                    } else if (type === "data") {
+                        elements.mailbox.innerHTML = `<p>✅ <strong>Pesanan Selesai!</strong> Data Anda telah dikirim:</p><pre>${content}</pre>`;
+                        elements.paymentDetails.classList.add('hidden');
+                        elements.uploadSection.classList.add('hidden');
+                        clearInterval(mailboxInterval); // Stop checking
+                    }
+                }
+            };
+            
+            let mailboxInterval;
+
+            // --- Event Listeners ---
+            elements.productCards.forEach(card => card.addEventListener('click', () => selectProduct(card)));
+
+            elements.ramSlider.addEventListener('input', updatePrice);
+
+            elements.orderButton.addEventListener('click', () => {
+                const name = document.getElementById('customer-name').value;
+                const whatsapp = document.getElementById('customer-whatsapp').value;
+
+                if (!name || !whatsapp) {
+                    alert('Harap isi Nama dan Nomor WhatsApp.');
+                    return;
+                }
+                
+                state.orderId = `order_${Date.now()}`;
+                const orderData = {
+                    id: state.orderId,
+                    product: state.product,
+                    spec: state.product === 'Panel Bot WA' ? `${state.ram} GB` : 'Kustom',
+                    price: state.price,
+                    name: name,
+                    whatsapp: whatsapp,
+                    status: 'pending' // pending, accepted, data_sent
+                };
+
+                // Simulate sending to admin via localStorage
+                const allOrders = JSON.parse(localStorage.getItem('allOrders')) || [];
+                allOrders.push(orderData);
+                localStorage.setItem('allOrders', JSON.stringify(allOrders));
+
+                elements.statusSection.style.display = 'block';
+                elements.mailbox.innerHTML = `<p>⏳ Pesanan Anda telah terkirim dengan ID <strong>#${state.orderId.split('_')[1]}</strong>. Mohon tunggu konfirmasi dari admin sebelum melakukan transfer.</p>`;
+                
+                elements.configForm.classList.add('hidden');
+                elements.welcomeMessage.classList.remove('hidden');
+                elements.welcomeMessage.innerHTML = "<p>Terima kasih! Cek status pesanan Anda di bawah.</p>";
+                
+                mailboxInterval = setInterval(checkMailbox, 2000); // Check every 2 seconds
+            });
+            
+            elements.proofUpload.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        elements.imagePreview.src = e.target.result;
+                        elements.imagePreview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+            
+            elements.sendProofButton.addEventListener('click', () => {
+                if (!elements.proofUpload.files || elements.proofUpload.files.length === 0) {
+                    alert('Silakan pilih file gambar bukti transfer terlebih dahulu.');
+                    return;
+                }
+                elements.mailbox.innerHTML = `<p>✅ Bukti transfer terkirim. Admin akan segera memproses pesanan dan mengirimkan data panel/VPS Anda melalui mailbox ini. Mohon ditunggu.</p>`;
+                elements.paymentDetails.classList.add('hidden');
+                elements.uploadSection.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
